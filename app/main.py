@@ -27,10 +27,11 @@ async def main() -> None:
 
     dp = Dispatcher()
 
-    # Middleware для сообщений
-    dp.message.middleware(
-        UserContextMiddleware(async_session_factory)
-    )
+    # Middleware (ВАЖНО: и для сообщений, и для кнопок)
+    middleware = UserContextMiddleware(async_session_factory)
+
+    dp.message.middleware(middleware)
+    dp.callback_query.middleware(middleware)
 
     # Роутеры
     setup_routers(dp)
