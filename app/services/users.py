@@ -1,44 +1,48 @@
 # app/services/users.py
 
 """
-User service layer (temporary working version)
+Temporary working user service layer
 """
 
 
 def list_admin_telegram_ids():
-    """
-    Список админов Telegram
-    (заглушка)
-    """
+    """Список админов (заглушка)"""
     return []
 
 
 def get_user(user_id: int):
-    """
-    Получить пользователя по ID
-    (заглушка, чтобы middleware не падал)
-    """
-
+    """Получить пользователя (заглушка)"""
     return {
         "user_id": user_id,
-        "username": None
+        "username": None,
+        "role": "user"
     }
 
 
 def get_user_by_id(user_id: int):
-    """
-    Альтернативное имя функции (на случай старых импортов)
-    """
-
+    """Алиас"""
     return get_user(user_id)
 
 
 def create_user(user_id: int, username: str | None = None):
+    """Создание пользователя (заглушка)"""
+    return {
+        "user_id": user_id,
+        "username": username,
+        "role": "user"
+    }
+
+
+def grant_role(user_id: int, role: str):
     """
-    Создание пользователя (заглушка)
+    Назначить роль пользователю
+    (заглушка, чтобы бот не падал)
     """
+
+    # TODO: подключить БД и реально сохранять роль
 
     return {
         "user_id": user_id,
-        "username": username
+        "role": role,
+        "status": "granted"
     }
