@@ -15,18 +15,19 @@ class UserContextMiddleware(BaseMiddleware):
 
     async def __call__(
         self,
-        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        handler: Callable,
         event: TelegramObject,
         data: Dict[str, Any],
     ) -> Any:
 
         tg_user = getattr(event, "from_user", None)
 
-        if not tg_user:
-            return await handler(event, data)
-
         async with self.sessionmaker() as session:
-            db_user = await get_user(session, tg_user.id)
-            data["db_user"] = db_user
+
+            data["session"] = session
+
+            if tg_user:
+                db_user = await get_user(session, tg_user.id)
+                data["db_user"] = db_user
 
             return await handler(event, data)
