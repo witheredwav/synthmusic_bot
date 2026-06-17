@@ -3,8 +3,8 @@ from typing import Callable, Awaitable, Dict, Any
 
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
-from app.db.models import User
 from app.services.users import get_user
+from app.db.models import User
 
 
 class UserContextMiddleware(BaseMiddleware):
@@ -26,6 +26,6 @@ class UserContextMiddleware(BaseMiddleware):
             db_user: User | None = await get_user(session, tg_user.id)
 
             data["db_user"] = db_user
-            data["session"] = session  # 👈 ВАЖНО
+            data["session"] = session
 
             return await handler(event, data)
