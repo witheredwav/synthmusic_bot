@@ -1,2 +1,0 @@
-"""Recording studio Telegram bot."""
-
