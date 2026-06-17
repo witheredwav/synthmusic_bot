@@ -1,78 +1,137 @@
-# Telegram bot for a recording studio
+# Telegram Bot for Recording Studio
 
-Production-oriented aiogram 3 bot for booking recording sessions in a studio.
+A Telegram bot for managing bookings in a recording studio, built with aiogram 3.x, SQLAlchemy, and PostgreSQL.
 
-## What is included
+## Features
 
-- Python 3.12, aiogram 3, PostgreSQL, SQLAlchemy 2 async, Alembic.
-- Client, sound engineer and administrator roles.
-- Telegram-only navigation with reply and inline keyboards.
-- Booking flow with date, engineer, slot, client data, duration and final confirmation.
-- Night booking requests with manual approval.
-- Engineer approval/rejection and attendance statuses.
-- Referral links, anti-abuse referral accounting and bonus ledger.
-- Admin Telegram panel: statistics, bookings, clients, engineers, admins, role management.
-- Monthly text + PDF report job.
-- Reminder job for clients and engineers.
-- Docker, docker-compose, Railway config and `.env` driven settings.
+- Client booking flow with inline keyboards
+- Engineer and admin roles
+- Bonus and referral system
+- Schedule management
+- Automatic notifications
+- Dockerized for easy deployment
 
-## Quick start locally
+## Technology Stack
 
-1. Copy environment variables:
+- Python 3.12
+- aiogram 3.x
+- PostgreSQL
+- SQLAlchemy 2.0
+- Alembic for migrations
+- Docker
+- Railway for deployment
 
-```bash
-cp .env.example .env
+## Setup
+
+### Local Development
+
+1. Clone the repository
+2. Copy `.env.example` to `.env` and fill in the required values:
+   - `BOT_TOKEN`: Your Telegram bot token
+   - `DATABASE_URL`: PostgreSQL connection string (e.g., `postgresql+asyncpg://user:password@localhost/db_name`)
+   - `ADMIN_IDS`: Comma-separated list of Telegram IDs for admins (optional)
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. Apply database migrations:
+   ```bash
+   alembic upgrade head
+   ```
+5. Run the bot:
+   ```bash
+   python -m src.bot.main
+   ```
+
+### Using Docker Compose
+
+1. Copy `.env.example` to `.env` and fill in the values
+2. Start the services:
+   ```bash
+   docker-compose up --build
+   ```
+
+### Deployment to Railway
+
+1. Push the repository to GitHub
+2. In Railway, create a new project and connect your GitHub repository
+3. Railway will automatically detect the Dockerfile and build the image
+4. Set the environment variables in the Railway dashboard:
+   - `BOT_TOKEN`
+   - `DATABASE_URL` (you can add a PostgreSQL plugin)
+   - `ADMIN_IDS`
+5. Deploy!
+
+## Project Structure
+
+```
+src/
+├── bot/
+│   ├── main.py          # Entry point
+│   ├── config.py        # Configuration loading
+│   ├── database.py      # Database setup
+│   ├── handlers/        # Message and callback handlers
+│   │   ├── client.py    # Client-facing handlers
+│   │   ├── engineer.py  # Engineer-facing handlers
+│   │   └── admin.py     # Admin-facing handlers
+│   ├── keyboards/       # Keyboard builders
+│   │   ├── common.py    # Common keyboards (confirm, back, main menus)
+│   │   ├── client.py    # Client-specific keyboards
+│   │   ├── engineer.py  # Engineer-specific keyboards
+│   │   └── admin.py     # Admin-specific keyboards
+│   ├── middlewares/     # Custom middlewares
+│   │   └── role_middleware.py  # Role-based middleware
+│   └── states.py        # FSM states
+├── models/              # SQLAlchemy models
+│   ├── user.py
+│   ├── booking.py
+│   ├── bonus.py
+│   ├── referral.py
+│   ├── schedule.py
+│   └── day_off.py
+└── migrations/          # Alembic migration scripts
+    ├── env.py
+    └── versions/
+        └── 2026_06_18_000000_initial_migration.py
 ```
 
-2. Fill in `BOT_TOKEN`, `DATABASE_URL` and `INITIAL_ADMIN_IDS`.
+## Database Models
 
-3. Start PostgreSQL and the bot:
+- **User**: Represents a user (client, engineer, or admin)
+- **Booking**: Represents a booking session
+- **BonusTransaction**: Tracks bonus earnings and spending
+- **Referral**: Tracks referral relationships
+- **Schedule**: Defines weekly working hours for engineers
+- **DayOff**: Marks specific days as unavailable for engineers
 
-```bash
-docker compose up --build
-```
+## How It Works
 
-4. Apply migrations if you run outside Docker:
+### Client Flow
 
-```bash
-alembic upgrade head
-python -m app.main
-```
+1. Client starts the bot and sees the main menu
+2. To book a session:
+   - Select month → date → engineer → time → duration
+   - Enter name and phone number (with confirmation)
+   - For bookings ≤ 2 hours: request goes to engineer for instant confirmation
+   - For bookings ≥ 3 hours: request requires manual confirmation from engineer or admin
+3. Client can view their recordings, bonuses, and referral link
 
-## Railway deploy
+### Engineer Flow
 
-1. Create a Railway project.
-2. Add a PostgreSQL service.
-3. Add these variables to the bot service:
+1. Engineer sees new requests in the "Новые заявки" menu
+2. Can confirm or reject requests (with reason for rejection)
+3. Can manage their schedule and days off
+4. Can view their upcoming sessions
 
-```text
-BOT_TOKEN=...
-DATABASE_URL=${{Postgres.DATABASE_URL}}
-INITIAL_ADMIN_IDS=123456789,987654321
-BOT_USERNAME=your_bot_username
-TIMEZONE=Asia/Yekaterinburg
-```
+### Admin Flow
 
-4. Deploy from GitHub. Railway uses `railway.toml` and the Dockerfile.
+1. Admin has full access to:
+   - View and manage clients, engineers, and other admins
+   - View all bookings and bonus transactions
+   - Manage the bonus and referral systems
+   - View statistics and generate reports
+   - Adjust settings
 
-The container runs `alembic upgrade head` before starting the bot.
+## License
 
-## Important operational notes
-
-- All secrets are read from environment variables.
-- The database migration enables PostgreSQL `btree_gist` and adds an exclusion constraint to prevent overlapping active bookings for the same engineer.
-- Telegram users are created on first interaction. Referral links use `/start ref_<telegram_id>`.
-- The first admins come from `INITIAL_ADMIN_IDS`; additional admins and engineers can be added from the Telegram admin panel.
-- The bot uses long polling. For webhook deployments, replace `Dispatcher.start_polling` in `app/main.py`.
-
-## Project structure
-
-```text
-app/
-  bot/               Telegram routers, keyboards, middlewares
-  db/                SQLAlchemy models, session, migrations
-  services/          Booking, bonus, stats, report and notification logic
-  config.py          Pydantic settings
-  main.py            Application entrypoint
-```
-
+MIT
