@@ -36,7 +36,7 @@ async def stats(message: Message, db_user: User, session: AsyncSession) -> None:
 async def users(message: Message, db_user: User) -> None:
     if not is_admin(db_user):
         return
-    await message.answer("Управление ролями:", reply_markup=role_management_keyboard().as_markup())
+    await message.answer("Управление ролями:", reply_markup=confirm_keyboard(),
 
 
 @router.callback_query(NavCb.filter(F.target.in_({"add_engineer", "add_admin"})))
