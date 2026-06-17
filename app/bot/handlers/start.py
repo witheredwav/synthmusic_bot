@@ -1,33 +1,48 @@
 from aiogram import Router, F
-from aiogram.filters import CommandStart
 from aiogram.types import Message
 
-from app.bot.keyboards.common import admin_menu, client_menu, engineer_menu
-from app.db.enums import Role
-from app.db.models import User
+from app.services.users import get_or_create_user
+from app.enums.roles import Role
 
 router = Router()
 
 
-@router.message(CommandStart())
-async def start(message: Message, db_user: User):
-
-    if not db_user:
-        await message.answer("❌ Пользователь не найден в базе.")
-        return
-
-    if db_user.has_role(Role.ADMIN):
-        await message.answer("Админ-панель открыта.", reply_markup=admin_menu())
-
-    elif db_user.has_role(Role.ENGINEER):
-        await message.answer("Кабинет звукорежиссера открыт.", reply_markup=engineer_menu())
-
-    else:
-        await message.answer("Добро пожаловать в студию.", reply_markup=client_menu())
+def _get_user_id(event: Message):
+    return event.from_user.id
 
 
-@router.message(F.text == "Помощь")
-async def help_message(message: Message):
-    await message.answer(
-        "Выберите нужный раздел кнопками меню."
+@router.message(F.text == "/start")
+async def start(message: Message, db_user, session):
+    tg_user = message.from_user
+    tg_id = tg_user.id
+
+    # 1. создаём или получаем пользователя
+    db_user = await get_or_create_user(
+        session=session,
+        tg_id=tg_id,
+        username=tg_user.username,
+        full_name=tg_user.full_name,
     )
+
+    # 2. проверка роли (ВАЖНО: теперь безопасно)
+    is_admin = False
+
+    try:
+        if hasattr(db_user, "has_role"):
+            is_admin = db_user.has_role(Role.ADMIN)
+        elif isinstance(db_user, dict):
+            is_admin = db_user.get("role") == "admin"
+    except Exception:
+        is_admin = False
+
+    # 3. ответ пользователю
+    if is_admin:
+        await message.answer(
+            "👋 Привет, админ!\n"
+            "У тебя есть доступ к панели управления."
+        )
+    else:
+        await message.answer(
+            "👋 Привет!\n"
+            "Ты зарегистрирован в системе."
+        )
