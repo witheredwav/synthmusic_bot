@@ -1,11 +1,25 @@
 from aiogram import BaseMiddleware
+from typing import Callable, Awaitable, Dict, Any
+
 from app.services.users import get_user
 
 
 class UserContextMiddleware(BaseMiddleware):
-    async def __call__(self, handler, event, data):
+    """
+    Middleware: добавляет db_user и tg_user в handler data
+    """
 
-        # Telegram Update → безопасно достаём пользователя
+    def __init__(self, session_factory=None):
+        super().__init__()
+        self.session_factory = session_factory  # можно не использовать пока
+
+    async def __call__(
+        self,
+        handler: Callable[[Any, Dict[str, Any]], Awaitable[Any]],
+        event: Any,
+        data: Dict[str, Any],
+    ):
+
         tg_user = None
 
         if hasattr(event, "from_user") and event.from_user:
@@ -18,10 +32,10 @@ class UserContextMiddleware(BaseMiddleware):
         if not tg_user:
             return await handler(event, data)
 
-        # получаем пользователя (sync в твоей версии)
+        # получаем пользователя
         db_user = get_user(tg_user.id)
 
-        data["db_user"] = db_user
         data["tg_user"] = tg_user
+        data["db_user"] = db_user
 
         return await handler(event, data)
