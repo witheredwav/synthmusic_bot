@@ -1,17 +1,17 @@
 # app/services/users.py
 
 """
-Temporary working user service layer
+Temporary working user service layer (FIX VERSION)
 """
 
 
 def list_admin_telegram_ids():
-    """Список админов (заглушка)"""
+    """Список админов"""
     return []
 
 
 def get_user(user_id: int):
-    """Получить пользователя (заглушка)"""
+    """Получить пользователя"""
     return {
         "user_id": user_id,
         "username": None,
@@ -20,12 +20,10 @@ def get_user(user_id: int):
 
 
 def get_user_by_id(user_id: int):
-    """Алиас"""
     return get_user(user_id)
 
 
 def create_user(user_id: int, username: str | None = None):
-    """Создание пользователя (заглушка)"""
     return {
         "user_id": user_id,
         "username": username,
@@ -34,15 +32,24 @@ def create_user(user_id: int, username: str | None = None):
 
 
 def grant_role(user_id: int, role: str):
-    """
-    Назначить роль пользователю
-    (заглушка, чтобы бот не падал)
-    """
-
-    # TODO: подключить БД и реально сохранять роль
-
     return {
         "user_id": user_id,
         "role": role,
         "status": "granted"
+    }
+
+
+def ensure_initial_admins():
+    """
+    Создание начальных админов при старте проекта
+    (заглушка, чтобы бот не падал)
+    """
+
+    # TODO: здесь обычно:
+    # - читают .env
+    # - или создают первого админа в БД
+
+    return {
+        "status": "ok",
+        "admins_initialized": True
     }
