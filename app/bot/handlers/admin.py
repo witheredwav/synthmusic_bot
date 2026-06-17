@@ -6,11 +6,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.bot.callbacks import BookingActionCb, ConfirmCb, NavCb
-from app.bot.keyboards.admin import bookings_list_keyboard, clients_keyboard, engineers_admin_keyboard, role_management_keyboard
+from app.bot.keyboards.admin import (
+    bookings_list_keyboard,
+    clients_keyboard,
+    engineers_admin_keyboard,
+    role_management_keyboard,
+)
 from app.bot.keyboards.booking import booking_decision_keyboard
 from app.bot.keyboards.common import admin_menu, confirm_keyboard
 from app.bot.states import AdminRoleFlow
-from app.db.enums import BookingStatus, BookingType, Role
+from app.db.enums import BookingType, Role
 from app.db.models import Booking, ClientProfile, EngineerProfile, User
 from app.services.booking import get_booking
 from app.services.stats import dashboard, revenue_by_engineer
@@ -36,7 +41,11 @@ async def stats(message: Message, db_user: User, session: AsyncSession) -> None:
 async def users(message: Message, db_user: User) -> None:
     if not is_admin(db_user):
         return
-    await message.answer("Управление ролями:", reply_markup=confirm_keyboard(),
+
+    await message.answer(
+        "Управление ролями:",
+        reply_markup=role_management_keyboard().as_markup(),
+    )
 
 
 @router.callback_query(NavCb.filter(F.target.in_({"add_engineer", "add_admin"})))
@@ -44,9 +53,11 @@ async def role_start(callback: CallbackQuery, callback_data: NavCb, state: FSMCo
     if not is_admin(db_user):
         await callback.answer("Нет доступа.", show_alert=True)
         return
+
     role = Role.ENGINEER if callback_data.target == "add_engineer" else Role.ADMIN
     await state.set_state(AdminRoleFlow.telegram_id)
     await state.update_data(role=role.value)
+
     await callback.message.answer("Введите Telegram ID.")
     await callback.answer()
 
@@ -58,11 +69,13 @@ async def role_id(message: Message, state: FSMContext) -> None:
     except ValueError:
         await message.answer("Telegram ID должен быть числом.")
         return
+
     await state.update_data(telegram_id=telegram_id)
     await state.set_state(AdminRoleFlow.confirm)
+
     await message.answer(
         f"Telegram ID: {telegram_id}",
-        reply_markup=confirm_keyboard().as_markup(),
+        reply_markup=confirm_keyboard(),
     )
 
 
@@ -78,15 +91,19 @@ async def role_confirm(
         await callback.message.edit_text("Действие отменено.")
         await callback.answer()
         return
+
     if callback_data.action == "edit":
         await state.set_state(AdminRoleFlow.telegram_id)
         await callback.message.edit_text("Введите Telegram ID заново.")
         await callback.answer()
         return
+
     data = await state.get_data()
     role = Role(data["role"])
+
     await grant_role(session, data["telegram_id"], role)
     await session.commit()
+
     await state.clear()
     await callback.message.edit_text(f"Роль {role.value} назначена.")
     await callback.answer()
@@ -96,30 +113,47 @@ async def role_confirm(
 async def all_bookings(message: Message, db_user: User, session: AsyncSession) -> None:
     if not is_admin(db_user):
         return
+
     statement = select(Booking).order_by(Booking.starts_at.desc()).limit(20)
+
     if message.text == "Ночные записи":
         statement = statement.where(Booking.booking_type == BookingType.NIGHT)
+
     result = await session.execute(statement)
     bookings = list(result.scalars())
+
     if not bookings:
         await message.answer("Записей пока нет.")
         return
-    await message.answer("Выберите запись:", reply_markup=bookings_list_keyboard(bookings).as_markup())
+
+    await message.answer(
+        "Выберите запись:",
+        reply_markup=bookings_list_keyboard(bookings).as_markup(),
+    )
 
 
 @router.callback_query(BookingActionCb.filter(F.action == "view"))
-async def booking_view(callback: CallbackQuery, callback_data: BookingActionCb, session: AsyncSession, db_user: User) -> None:
+async def booking_view(
+    callback: CallbackQuery,
+    callback_data: BookingActionCb,
+    session: AsyncSession,
+    db_user: User,
+) -> None:
     if not is_admin(db_user):
         await callback.answer("Нет доступа.", show_alert=True)
         return
+
     booking = await get_booking(session, callback_data.booking_id)
+
     if booking is None:
         await callback.answer("Запись не найдена.", show_alert=True)
         return
+
     await callback.message.answer(
         booking_card_text(booking),
         reply_markup=booking_decision_keyboard(booking, allow_contact=True).as_markup(),
     )
+
     await callback.answer()
 
 
@@ -127,29 +161,49 @@ async def booking_view(callback: CallbackQuery, callback_data: BookingActionCb, 
 async def clients(message: Message, db_user: User, session: AsyncSession) -> None:
     if not is_admin(db_user):
         return
+
     result = await session.execute(
         select(ClientProfile)
         .options(selectinload(ClientProfile.user))
         .order_by(ClientProfile.created_at.desc())
         .limit(20)
     )
+
     clients_list = list(result.scalars())
+
     if not clients_list:
         await message.answer("Клиентов пока нет.")
         return
-    await message.answer("Клиенты:", reply_markup=clients_keyboard(clients_list).as_markup())
+
+    await message.answer(
+        "Клиенты:",
+        reply_markup=clients_keyboard(clients_list).as_markup(),
+    )
 
 
 @router.callback_query(NavCb.filter(F.target.startswith("client_")))
-async def client_card(callback: CallbackQuery, callback_data: NavCb, session: AsyncSession, db_user: User) -> None:
+async def client_card(
+    callback: CallbackQuery,
+    callback_data: NavCb,
+    session: AsyncSession,
+    db_user: User,
+) -> None:
     if not is_admin(db_user):
         await callback.answer("Нет доступа.", show_alert=True)
         return
+
     client_id = int(callback_data.target.split("_", 1)[1])
-    client = await session.get(ClientProfile, client_id, options=[selectinload(ClientProfile.user)])
+
+    client = await session.get(
+        ClientProfile,
+        client_id,
+        options=[selectinload(ClientProfile.user)],
+    )
+
     if client is None:
         await callback.answer("Клиент не найден.", show_alert=True)
         return
+
     await callback.message.answer(
         "\n".join(
             [
@@ -166,6 +220,7 @@ async def client_card(callback: CallbackQuery, callback_data: NavCb, session: As
             ]
         )
     )
+
     await callback.answer()
 
 
@@ -173,8 +228,10 @@ async def client_card(callback: CallbackQuery, callback_data: NavCb, session: As
 async def engineers(message: Message, db_user: User, session: AsyncSession) -> None:
     if not is_admin(db_user):
         return
+
     result = await session.execute(select(EngineerProfile).order_by(EngineerProfile.name))
     engineers_list = list(result.scalars())
+
     await message.answer(
         "Звукорежиссеры:",
         reply_markup=engineers_admin_keyboard(engineers_list).as_markup(),
@@ -185,8 +242,8 @@ async def engineers(message: Message, db_user: User, session: AsyncSession) -> N
 async def settings_hint(message: Message, db_user: User) -> None:
     if not is_admin(db_user):
         return
+
     await message.answer(
         "Бонусы, графики, видимость профилей и стоимость хранятся в БД. "
         "Ключевые операции уже защищены подтверждением через кнопки."
     )
-
