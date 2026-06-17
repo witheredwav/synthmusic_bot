@@ -1,3 +1,13 @@
+from typing import Callable, Dict, Any, Awaitable
+
+from aiogram import BaseMiddleware
+from aiogram.types import TelegramObject
+
+from sqlalchemy.ext.asyncio import async_sessionmaker
+
+from app.db.functions import get_user
+
+
 class UserContextMiddleware(BaseMiddleware):
 
     def __init__(self, sessionmaker: async_sessionmaker):
@@ -5,10 +15,11 @@ class UserContextMiddleware(BaseMiddleware):
 
     async def __call__(
         self,
-        handler,
-        event,
-        data,
-    ):
+        handler: Callable[[TelegramObject, Dict[str, Any]], Awaitable[Any]],
+        event: TelegramObject,
+        data: Dict[str, Any],
+    ) -> Any:
+
         tg_user = getattr(event, "from_user", None)
 
         if not tg_user:
