@@ -16,7 +16,7 @@ from app.services.users import ensure_initial_admins
 logger = logging.getLogger(__name__)
 
 
-async def main() -> None:
+async def main():
     settings = get_settings()
     configure_logging(settings.log_level)
 
@@ -27,20 +27,16 @@ async def main() -> None:
 
     dp = Dispatcher()
 
-    # Middleware (ВАЖНО: и для сообщений, и для кнопок)
-    middleware = UserContextMiddleware(async_session_factory)
+    # ✅ ВАЖНО: middleware на ВСЕ апдейты
+    dp.update.middleware(
+        UserContextMiddleware(async_session_factory)
+    )
 
-    dp.message.middleware(middleware)
-    dp.callback_query.middleware(middleware)
-
-    # Роутеры
     setup_routers(dp)
 
-    # Создание админов
     async with async_session_factory() as session:
         await ensure_initial_admins(session, settings.admin_ids)
 
-    # Планировщик
     scheduler = setup_scheduler(bot)
     scheduler.start()
 
