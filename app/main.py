@@ -27,17 +27,19 @@ async def main() -> None:
 
     dp = Dispatcher()
 
-    # 🔥 middleware
-    dp.update.middleware(UserContextMiddleware(async_session_factory))
+    # Middleware для сообщений
+    dp.message.middleware(
+        UserContextMiddleware(async_session_factory)
+    )
 
-    # routers
+    # Роутеры
     setup_routers(dp)
 
-    # init admins
+    # Создание админов
     async with async_session_factory() as session:
         await ensure_initial_admins(session, settings.admin_ids)
 
-    # scheduler
+    # Планировщик
     scheduler = setup_scheduler(bot)
     scheduler.start()
 
