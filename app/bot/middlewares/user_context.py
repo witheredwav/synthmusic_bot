@@ -5,13 +5,10 @@ from app.services.users import get_user
 
 
 class UserContextMiddleware(BaseMiddleware):
-    """
-    Middleware: добавляет db_user и tg_user в handler data
-    """
 
     def __init__(self, session_factory=None):
         super().__init__()
-        self.session_factory = session_factory  # можно не использовать пока
+        self.session_factory = session_factory
 
     async def __call__(
         self,
@@ -32,10 +29,14 @@ class UserContextMiddleware(BaseMiddleware):
         if not tg_user:
             return await handler(event, data)
 
-        # получаем пользователя
+        # user
         db_user = get_user(tg_user.id)
+
+        # 🔥 ВАЖНО: создаём session (заглушка если нет DB)
+        session = self.session_factory() if self.session_factory else None
 
         data["tg_user"] = tg_user
         data["db_user"] = db_user
+        data["session"] = session
 
         return await handler(event, data)
