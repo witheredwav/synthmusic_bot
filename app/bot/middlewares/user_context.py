@@ -1,30 +1,24 @@
 from aiogram import BaseMiddleware
-from typing import Callable, Awaitable, Dict, Any
-
+from typing import Callable, Dict, Any, Awaitable
 from sqlalchemy.ext.asyncio import async_sessionmaker
 
 from app.services.users import get_user
-from app.db.models import User
 
 
 class UserContextMiddleware(BaseMiddleware):
     def __init__(self, sessionmaker: async_sessionmaker):
         self.sessionmaker = sessionmaker
 
-    async def __call__(
-        self,
-        handler: Callable[[Any, Dict[str, Any]], Awaitable[Any]],
-        event: Any,
-        data: Dict[str, Any],
-    ):
-        tg_user = getattr(event, "from_user", None)
+    async def __call__(self, handler: Callable[[Any, Dict[str, Any]], Awaitable[Any]], event: Any, data: Dict[str, Any]):
 
-        if not tg_user:
-            return await handler(event, data)
+        user = event.from_user
 
         async with self.sessionmaker() as session:
-            db_user: User | None = await get_user(session, tg_user.id)
 
+            db_user = await get_user(user.id)
+
+            # 🔥 КЛЮЧЕВОЕ ИСПРАВЛЕНИЕ:
+            # прокидываем зависимости в handlers
             data["db_user"] = db_user
             data["session"] = session
 
