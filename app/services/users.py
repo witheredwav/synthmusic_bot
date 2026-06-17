@@ -1,8 +1,11 @@
-# app/services/users.py
+class DBUser:
+    def __init__(self, user_id: int, username: str | None = None, role: str = "user"):
+        self.user_id = user_id
+        self.username = username
+        self.role = role
 
-"""
-Temporary working user service layer (FIXED SIGNATURES)
-"""
+    def has_role(self, role: str) -> bool:
+        return self.role == role
 
 
 def list_admin_telegram_ids():
@@ -10,11 +13,8 @@ def list_admin_telegram_ids():
 
 
 def get_user(user_id: int):
-    return {
-        "user_id": user_id,
-        "username": None,
-        "role": "user"
-    }
+    # теперь возвращаем объект, НЕ dict
+    return DBUser(user_id=user_id, role="user")
 
 
 def get_user_by_id(user_id: int):
@@ -22,33 +22,15 @@ def get_user_by_id(user_id: int):
 
 
 def create_user(user_id: int, username: str | None = None):
-    return {
-        "user_id": user_id,
-        "username": username,
-        "role": "user"
-    }
+    return DBUser(user_id=user_id, username=username, role="user")
 
 
 def grant_role(user_id: int, role: str):
-    return {
-        "user_id": user_id,
-        "role": role,
-        "status": "granted"
-    }
+    return DBUser(user_id=user_id, role=role)
 
 
-# 🔥 ВАЖНО: теперь функция принимает 2 аргумента как в main.py
 async def ensure_initial_admins(session, admin_ids):
-    """
-    Инициализация админов при старте
-    session -> SQLAlchemy session (пока не используем)
-    admin_ids -> список админов из settings
-    """
-
-    # TODO: здесь должна быть логика записи админов в БД
-
     return {
         "status": "ok",
-        "admins_received": admin_ids,
-        "initialized": True
+        "admins": admin_ids
     }
