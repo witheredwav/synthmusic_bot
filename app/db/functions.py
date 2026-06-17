@@ -10,7 +10,7 @@ async def get_user(user_id: int) -> User | None:
 
         result = await session.execute(
             select(User)
-            .options(selectinload(User.roles))  # 🔥 ГРУЗИМ РОЛИ СРАЗУ
+            .options(selectinload(User.roles))
             .where(User.telegram_id == user_id)
         )
 
