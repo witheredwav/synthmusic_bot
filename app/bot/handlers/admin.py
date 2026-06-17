@@ -1,7 +1,6 @@
 from aiogram import F, Router
 from aiogram.fsm.context import FSMContext
 from aiogram.types import CallbackQuery, Message
-
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -27,11 +26,12 @@ router = Router()
 
 
 def is_admin(user: User) -> bool:
-    return user and user.has_role(Role.ADMIN)
+    return user.has_role(Role.ADMIN)
 
 
-# ===================== STATS =====================
-
+# ---------------------------
+# STATS
+# ---------------------------
 @router.message(F.text == "Статистика")
 async def stats(message: Message, db_user: User, session: AsyncSession):
     if not is_admin(db_user):
@@ -41,8 +41,9 @@ async def stats(message: Message, db_user: User, session: AsyncSession):
     await message.answer(await revenue_by_engineer(session))
 
 
-# ===================== USERS =====================
-
+# ---------------------------
+# ROLE MENU
+# ---------------------------
 @router.message(F.text.in_({"Пользователи", "Администраторы"}))
 async def users(message: Message, db_user: User):
     if not is_admin(db_user):
@@ -50,14 +51,20 @@ async def users(message: Message, db_user: User):
 
     await message.answer(
         "Управление ролями:",
-        reply_markup=role_management_keyboard(),
+        reply_markup=role_management_keyboard().as_markup()
     )
 
 
-# ===================== ROLE FLOW =====================
-
+# ---------------------------
+# START ROLE FLOW
+# ---------------------------
 @router.callback_query(NavCb.filter(F.target.in_({"add_engineer", "add_admin"})))
-async def role_start(callback: CallbackQuery, callback_data: NavCb, state: FSMContext, db_user: User):
+async def role_start(
+    callback: CallbackQuery,
+    callback_data: NavCb,
+    state: FSMContext,
+    db_user: User,
+):
     if not is_admin(db_user):
         await callback.answer("Нет доступа", show_alert=True)
         return
@@ -71,6 +78,9 @@ async def role_start(callback: CallbackQuery, callback_data: NavCb, state: FSMCo
     await callback.answer()
 
 
+# ---------------------------
+# ENTER TELEGRAM ID
+# ---------------------------
 @router.message(AdminRoleFlow.telegram_id)
 async def role_id(message: Message, state: FSMContext):
     try:
@@ -84,10 +94,13 @@ async def role_id(message: Message, state: FSMContext):
 
     await message.answer(
         f"Telegram ID: {telegram_id}",
-        reply_markup=confirm_keyboard(),   # ❌ NO .as_markup()
+        reply_markup=confirm_keyboard().as_markup()
     )
 
 
+# ---------------------------
+# CONFIRM ROLE
+# ---------------------------
 @router.callback_query(AdminRoleFlow.confirm, ConfirmCb.filter())
 async def role_confirm(
     callback: CallbackQuery,
@@ -98,6 +111,12 @@ async def role_confirm(
     if callback_data.action == "cancel":
         await state.clear()
         await callback.message.edit_text("Отменено")
+        await callback.answer()
+        return
+
+    if callback_data.action == "edit":
+        await state.set_state(AdminRoleFlow.telegram_id)
+        await callback.message.edit_text("Введите Telegram ID заново")
         await callback.answer()
         return
 
@@ -112,8 +131,9 @@ async def role_confirm(
     await callback.answer()
 
 
-# ===================== BOOKINGS =====================
-
+# ---------------------------
+# BOOKINGS LIST
+# ---------------------------
 @router.message(F.text.in_({"Все записи", "Ночные записи"}))
 async def all_bookings(message: Message, db_user: User, session: AsyncSession):
     if not is_admin(db_user):
@@ -133,34 +153,44 @@ async def all_bookings(message: Message, db_user: User, session: AsyncSession):
 
     await message.answer(
         "Выберите запись:",
-        reply_markup=bookings_list_keyboard(bookings),
+        reply_markup=bookings_list_keyboard(bookings).as_markup()
     )
 
 
-# ===================== BOOKING VIEW =====================
-
+# ---------------------------
+# VIEW BOOKING
+# ---------------------------
 @router.callback_query(BookingActionCb.filter(F.action == "view"))
-async def booking_view(callback: CallbackQuery, callback_data: BookingActionCb, session: AsyncSession, db_user: User):
+async def booking_view(
+    callback: CallbackQuery,
+    callback_data: BookingActionCb,
+    session: AsyncSession,
+    db_user: User,
+):
     if not is_admin(db_user):
         await callback.answer("Нет доступа", show_alert=True)
         return
 
     booking = await get_booking(session, callback_data.booking_id)
 
-    if not booking:
+    if booking is None:
         await callback.answer("Не найдено", show_alert=True)
         return
 
     await callback.message.answer(
         booking_card_text(booking),
-        reply_markup=booking_decision_keyboard(booking, allow_contact=True),
+        reply_markup=booking_decision_keyboard(
+            booking,
+            allow_contact=True
+        ).as_markup()
     )
 
     await callback.answer()
 
 
-# ===================== CLIENTS =====================
-
+# ---------------------------
+# CLIENTS
+# ---------------------------
 @router.message(F.text == "Клиенты")
 async def clients(message: Message, db_user: User, session: AsyncSession):
     if not is_admin(db_user):
@@ -175,14 +205,26 @@ async def clients(message: Message, db_user: User, session: AsyncSession):
 
     clients_list = list(result.scalars())
 
+    if not clients_list:
+        await message.answer("Клиентов нет")
+        return
+
     await message.answer(
         "Клиенты:",
-        reply_markup=clients_keyboard(clients_list),
+        reply_markup=clients_keyboard(clients_list).as_markup()
     )
 
 
+# ---------------------------
+# CLIENT CARD
+# ---------------------------
 @router.callback_query(NavCb.filter(F.target.startswith("client_")))
-async def client_card(callback: CallbackQuery, callback_data: NavCb, session: AsyncSession, db_user: User):
+async def client_card(
+    callback: CallbackQuery,
+    callback_data: NavCb,
+    session: AsyncSession,
+    db_user: User,
+):
     if not is_admin(db_user):
         await callback.answer("Нет доступа", show_alert=True)
         return
@@ -195,16 +237,57 @@ async def client_card(callback: CallbackQuery, callback_data: NavCb, session: As
         options=[selectinload(ClientProfile.user)]
     )
 
-    if not client:
-        await callback.answer("Не найден", show_alert=True)
+    if client is None:
+        await callback.answer("Не найдено", show_alert=True)
         return
 
     await callback.message.answer(
-        f"<b>Клиент #{client.id}</b>\n"
-        f"Telegram ID: {client.user.telegram_id}\n"
-        f"Username: @{client.user.username if client.user.username else '-'}\n"
-        f"Имя: {client.display_name or client.user.first_name or '-'}\n"
-        f"Телефон: {client.phone or '-'}"
+        "\n".join([
+            f"<b>Клиент #{client.id}</b>",
+            f"Telegram ID: {client.user.telegram_id}",
+            f"Username: @{client.user.username}" if client.user.username else "Username: -",
+            f"Имя: {client.display_name or client.user.first_name or '-'}",
+            f"Телефон: {client.phone or '-'}",
+            f"Записей: {client.bookings_count}",
+            f"Завершенных: {client.completed_bookings_count}",
+            f"Отмен: {client.cancelled_bookings_count}",
+            f"Рефералов: {client.referrals_count}",
+            f"Бонусов: {client.bonus_points}",
+        ])
     )
 
     await callback.answer()
+
+
+# ---------------------------
+# ENGINEERS
+# ---------------------------
+@router.message(F.text == "Звукорежиссеры")
+async def engineers(message: Message, db_user: User, session: AsyncSession):
+    if not is_admin(db_user):
+        return
+
+    result = await session.execute(
+        select(EngineerProfile).order_by(EngineerProfile.name)
+    )
+
+    engineers_list = list(result.scalars())
+
+    await message.answer(
+        "Звукорежиссеры:",
+        reply_markup=engineers_admin_keyboard(engineers_list).as_markup()
+    )
+
+
+# ---------------------------
+# SETTINGS
+# ---------------------------
+@router.message(F.text.in_({"Бонусная система", "Настройки"}))
+async def settings_hint(message: Message, db_user: User):
+    if not is_admin(db_user):
+        return
+
+    await message.answer(
+        "Бонусы, графики и настройки хранятся в БД. "
+        "Все критические действия защищены подтверждением."
+    )
