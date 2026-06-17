@@ -10,8 +10,24 @@ async def get_user(user_id: int) -> User | None:
 
         result = await session.execute(
             select(User)
-            .options(selectinload(User.roles))  # 🔥 ВАЖНО
+            .options(selectinload(User.roles))  # 🔥 ГРУЗИМ РОЛИ СРАЗУ
             .where(User.telegram_id == user_id)
         )
 
         return result.scalar_one_or_none()
+
+
+async def create_user(user_id: int, username: str | None) -> User:
+    async with async_session_factory() as session:
+
+        user = User(
+            telegram_id=user_id,
+            username=username,
+            is_active=True
+        )
+
+        session.add(user)
+        await session.commit()
+        await session.refresh(user)
+
+        return user
