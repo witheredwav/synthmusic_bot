@@ -15,13 +15,9 @@ class DBUserMiddleware(BaseMiddleware):
         data: Dict[str, Any]
     ) -> Any:
 
-        user_id = None
+        user = getattr(event, "from_user", None)
 
-        if hasattr(event, "from_user") and event.from_user:
-            user_id = event.from_user.id
-
-        if user_id:
-            db_user = await get_user(user_id)
-            data["db_user"] = db_user
+        if user:
+            data["db_user"] = await get_user(user.id)
 
         return await handler(event, data)
