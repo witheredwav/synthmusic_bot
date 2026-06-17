@@ -1,17 +1,15 @@
 # app/services/users.py
 
 """
-Temporary working user service layer (FIX VERSION)
+Temporary working user service layer (FIXED SIGNATURES)
 """
 
 
 def list_admin_telegram_ids():
-    """Список админов"""
     return []
 
 
 def get_user(user_id: int):
-    """Получить пользователя"""
     return {
         "user_id": user_id,
         "username": None,
@@ -39,17 +37,18 @@ def grant_role(user_id: int, role: str):
     }
 
 
-def ensure_initial_admins():
+# 🔥 ВАЖНО: теперь функция принимает 2 аргумента как в main.py
+async def ensure_initial_admins(session, admin_ids):
     """
-    Создание начальных админов при старте проекта
-    (заглушка, чтобы бот не падал)
+    Инициализация админов при старте
+    session -> SQLAlchemy session (пока не используем)
+    admin_ids -> список админов из settings
     """
 
-    # TODO: здесь обычно:
-    # - читают .env
-    # - или создают первого админа в БД
+    # TODO: здесь должна быть логика записи админов в БД
 
     return {
         "status": "ok",
-        "admins_initialized": True
+        "admins_received": admin_ids,
+        "initialized": True
     }
