@@ -9,9 +9,6 @@ from app.db.enums import Role
 from app.db.models import ClientProfile, EngineerProfile, Referral, User, UserRole
 
 
-# =========================
-# GET USER (UNIFIED API)
-# =========================
 async def get_user(session: AsyncSession, telegram_id: int) -> User | None:
     result = await session.execute(
         select(User)
@@ -21,9 +18,10 @@ async def get_user(session: AsyncSession, telegram_id: int) -> User | None:
     return result.scalar_one_or_none()
 
 
-# =========================
-# ENSURE USER
-# =========================
+async def get_user_by_telegram_id(session: AsyncSession, telegram_id: int) -> User | None:
+    return await get_user(session, telegram_id)
+
+
 async def ensure_user(
     session: AsyncSession,
     tg_user: TgUser,
@@ -42,16 +40,12 @@ async def ensure_user(
         await session.flush()
 
         session.add(UserRole(user_id=user.id, role=Role.CLIENT))
-        session.add(
-            ClientProfile(
-                user_id=user.id,
-                referral_code=str(tg_user.id),
-            )
-        )
+        session.add(ClientProfile(user_id=user.id, referral_code=str(tg_user.id)))
         await session.flush()
     else:
         user.username = tg_user.username
         user.first_name = tg_user.first_name
+        await session.flush()
 
     await session.refresh(user, attribute_names=["roles", "client_profile"])
 
@@ -61,9 +55,6 @@ async def ensure_user(
     return user
 
 
-# =========================
-# REFERRALS
-# =========================
 async def attach_referral(
     session: AsyncSession,
     referred_client: ClientProfile | None,
@@ -97,37 +88,22 @@ async def attach_referral(
     )
 
 
-# =========================
-# INITIAL ADMINS
-# =========================
 async def ensure_initial_admins(session: AsyncSession, telegram_ids: Iterable[int]) -> None:
     for telegram_id in telegram_ids:
-        user = await get_user(session, telegram_id)
+        result = await session.execute(select(User).where(User.telegram_id == telegram_id))
+        user = result.scalar_one_or_none()
 
         if user is None:
-            user = User(
-                telegram_id=telegram_id,
-                first_name="Initial admin",
-            )
+            user = User(telegram_id=telegram_id, first_name="Initial admin")
             session.add(user)
             await session.flush()
-
-            session.add(
-                ClientProfile(
-                    user_id=user.id,
-                    referral_code=str(telegram_id),
-                )
-            )
-            await session.flush()
+            session.add(ClientProfile(user_id=user.id, referral_code=str(telegram_id)))
 
         await grant_role(session, user.telegram_id, Role.ADMIN)
 
     await session.commit()
 
 
-# =========================
-# GRANT ROLE (FIXED TRANSACTION)
-# =========================
 async def grant_role(session: AsyncSession, telegram_id: int, role: Role) -> User:
     user = await get_user(session, telegram_id)
 
@@ -135,13 +111,7 @@ async def grant_role(session: AsyncSession, telegram_id: int, role: Role) -> Use
         user = User(telegram_id=telegram_id)
         session.add(user)
         await session.flush()
-
-        session.add(
-            ClientProfile(
-                user_id=user.id,
-                referral_code=str(telegram_id),
-            )
-        )
+        session.add(ClientProfile(user_id=user.id, referral_code=str(telegram_id)))
 
     exists = await session.execute(
         select(UserRole).where(
@@ -170,3 +140,12 @@ async def grant_role(session: AsyncSession, telegram_id: int, role: Role) -> Use
 
     await session.flush()
     return user
+
+
+async def list_admin_telegram_ids(session: AsyncSession) -> list[int]:
+    result = await session.execute(
+        select(User.telegram_id)
+        .join(UserRole)
+        .where(UserRole.role == Role.ADMIN, User.is_active.is_(True))
+    )
+    return list(result.scalars())
