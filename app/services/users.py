@@ -1,31 +1,41 @@
 # app/services/users.py
 
 """
-User service layer
+User service layer (temporary working version)
 """
+
 
 def list_admin_telegram_ids():
     """
-    Возвращает список Telegram ID админов.
-    Сейчас это заглушка, чтобы бот запускался без ошибок.
+    Список админов Telegram
+    (заглушка)
+    """
+    return []
+
+
+def get_user(user_id: int):
+    """
+    Получить пользователя по ID
+    (заглушка, чтобы middleware не падал)
     """
 
-    # TODO: заменить на реальную логику (БД / конфиг / env)
-
-    return []
+    return {
+        "user_id": user_id,
+        "username": None
+    }
 
 
 def get_user_by_id(user_id: int):
     """
-    Заглушка под пользователя (если где-то используется)
+    Альтернативное имя функции (на случай старых импортов)
     """
 
-    return None
+    return get_user(user_id)
 
 
 def create_user(user_id: int, username: str | None = None):
     """
-    Заглушка создания пользователя
+    Создание пользователя (заглушка)
     """
 
     return {
