@@ -5,7 +5,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
-from app.bot.middlewares.role import UserContextMiddleware
+from app.bot.middlewares.user_context import UserContextMiddleware
 from app.bot.routers import setup_routers
 from app.config import get_settings
 from app.db.session import async_session_factory, dispose_engine
@@ -24,19 +24,26 @@ async def main() -> None:
         token=settings.bot_token,
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
-    dispatcher = Dispatcher()
-    dispatcher.update.middleware(UserContextMiddleware(async_session_factory))
-    setup_routers(dispatcher)
 
+    dp = Dispatcher()
+
+    # 🔥 middleware
+    dp.update.middleware(UserContextMiddleware(async_session_factory))
+
+    # routers
+    setup_routers(dp)
+
+    # init admins
     async with async_session_factory() as session:
         await ensure_initial_admins(session, settings.admin_ids)
 
+    # scheduler
     scheduler = setup_scheduler(bot)
     scheduler.start()
 
     try:
         logger.info("Starting bot polling")
-        await dispatcher.start_polling(bot)
+        await dp.start_polling(bot)
     finally:
         scheduler.shutdown(wait=False)
         await bot.session.close()
@@ -45,4 +52,3 @@ async def main() -> None:
 
 if __name__ == "__main__":
     asyncio.run(main())
-
